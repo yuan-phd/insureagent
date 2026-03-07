@@ -1,0 +1,21 @@
+{
+  "teacher": {
+    "model": "gpt-4o-mini",
+    "verdict_accuracy": 89.5,
+    "payout_precision": 78.9,
+    "tool_sequence_acc": 100.0,
+    "n_cases": 19
+  },
+  "student_v2": {
+    "model": "meta-llama/Llama-3.2-1B-Instruct + LoRA",
+    "adapter": "yuanphd/insureagent-lora-v2",
+    "verdict_accuracy": 78.9,
+    "payout_precision": 73.7,
+    "tool_sequence_acc": 63.2,
+    "n_cases": 19,
+    "training_data": 345,
+    "epochs": 5,
+    "lora_r": 16,
+    "trainable_params": "3.4M / 1.24B (0.275%)"
+  }
+}
