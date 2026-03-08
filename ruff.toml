@@ -1,0 +1,4 @@
+exclude = ["*.ipynb", "data/generate*.py"]
+
+[lint]
+ignore = ["E402"]
