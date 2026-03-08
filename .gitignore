@@ -2,7 +2,6 @@ venv/
 .env
 __pycache__/
 *.pyc
-*.db
 
 .DS_Store
 project_step.txt

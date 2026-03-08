@@ -1,0 +1,49 @@
+model:
+  teacher: "gpt-4o-mini"
+  student_base: "meta-llama/Llama-3.2-1B-Instruct"
+  adapter: "yuanphd/insureagent-lora-v2"
+
+lora:
+  r: 16
+  lora_alpha: 32
+  lora_dropout: 0.05
+  target_modules: ["q_proj", "v_proj", "k_proj", "o_proj"]
+
+training:
+  epochs: 5
+  batch_size: 2
+  gradient_accumulation_steps: 8
+  learning_rate: 1e-4
+  warmup_steps: 30
+  fp16: true
+
+data:
+  train_path: "data/train.jsonl"                                          # local / Colab
+  delta_path: "/Volumes/workspace/default/insureagent/train.jsonl"        # Databricks (production)
+  db_path_local: "insurance.db"                                           # local / Colab
+  db_path_databricks: "/Volumes/workspace/default/insureagent/insurance.db" # Databricks (production)
+  test_path: "data/test_cases.py"
+  n_train: 345
+  n_test: 19
+
+evaluation:
+  verdict_accuracy_target: 0.80
+  payout_precision_target: 0.75
+  accuracy_drop_threshold: 0.05           # EvidentlyAI monitoring threshold
+
+inference:
+  max_new_tokens: 512
+  temperature: 0.1
+  max_steps: 8
+
+mlflow:
+  experiment_name: "/insureagent/lora-training"
+  # local:      logs to ./mlruns
+  # databricks: requires DATABRICKS_HOST + DATABRICKS_TOKEN in .env
+
+api:
+  host: "0.0.0.0"
+  port: 8000
+
+logging:
+  level: "INFO"
