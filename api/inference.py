@@ -26,6 +26,9 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from tools.database import lookup_policy
 from tools.rules import check_rules
 from tools.calculator import calculate_payout
+from utils.logger import get_logger, Events
+
+log = get_logger(__name__)
 
 TOOL_REGISTRY = {
     "lookup_policy":    lookup_policy,
@@ -137,8 +140,9 @@ def _run_teacher(claim_text: str, user_id: str, claimed_amount: float,
         )}
     ]
     trace = [messages[1]]
+    log.info(Events.AGENT_STARTED, user_id=user_id, model="teacher")
 
-    for _ in range(max_steps):
+    for step in range(max_steps):
         response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=messages,
@@ -151,21 +155,25 @@ def _run_teacher(claim_text: str, user_id: str, claimed_amount: float,
         if "Verdict:" in model_output:
             break
         if "Observation:" in model_output:
+            log.warning(Events.HALLUCINATION, user_id=user_id, step=step)
             trace.append({"role": "system", "content": "[REJECTED: hallucination]"})
             break
 
         tool_name, args = parse_action_teacher(model_output)
-        observation = _execute_tool(tool_name, args)
 
+        if tool_name and args:
+            log.info(Events.TOOL_CALLED, tool=tool_name, user_id=user_id, step=step)
+
+        observation = _execute_tool(tool_name, args)
         trace.append({"role": "user", "content": observation})
         messages.append({"role": "user", "content": observation})
 
+    log.info(Events.AGENT_FINISHED, user_id=user_id, model="teacher", steps=step + 1)
     return trace
 
 
 # ── STUDENT INFERENCE ─────────────────────────────────────────────────────────
 
-# Module-level cache — model loaded once per server process
 _student_model = None
 _student_tokenizer = None
 
@@ -185,7 +193,8 @@ def _load_student_model():
     model_name = "meta-llama/Llama-3.2-1B-Instruct"
     adapter_path = "yuanphd/insureagent-lora-v2"
 
-    print("Loading Student base model...")
+    log.info(Events.MODEL_LOADED, model=model_name, adapter=adapter_path, status="loading")
+
     tokenizer = AutoTokenizer.from_pretrained(model_name, token=hf_token)
     tokenizer.pad_token = tokenizer.eos_token
 
@@ -196,13 +205,13 @@ def _load_student_model():
         device_map="auto",
     )
 
-    print("Loading LoRA adapter...")
     model = PeftModel.from_pretrained(base_model, adapter_path, token=hf_token)
     model.eval()
 
     _student_model = model
     _student_tokenizer = tokenizer
-    print("Student model ready.")
+
+    log.info(Events.MODEL_LOADED, model=model_name, adapter=adapter_path, status="ready")
     return model, tokenizer
 
 
@@ -236,8 +245,9 @@ def _run_student(claim_text: str, user_id: str, claimed_amount: float,
         )}
     ]
     trace = [messages[1]]
+    log.info(Events.AGENT_STARTED, user_id=user_id, model="student")
 
-    for _ in range(max_steps):
+    for step in range(max_steps):
         model_output = _generate_student(messages)
         trace.append({"role": "assistant", "content": model_output})
         messages.append({"role": "assistant", "content": model_output})
@@ -245,15 +255,20 @@ def _run_student(claim_text: str, user_id: str, claimed_amount: float,
         if "Verdict:" in model_output:
             break
         if "Observation:" in model_output:
+            log.warning(Events.HALLUCINATION, user_id=user_id, step=step)
             trace.append({"role": "system", "content": "[REJECTED: hallucination]"})
             break
 
         tool_name, args = parse_action_student(model_output)
-        observation = _execute_tool(tool_name, args)
 
+        if tool_name and args:
+            log.info(Events.TOOL_CALLED, tool=tool_name, user_id=user_id, step=step)
+
+        observation = _execute_tool(tool_name, args)
         trace.append({"role": "user", "content": observation})
         messages.append({"role": "user", "content": observation})
 
+    log.info(Events.AGENT_FINISHED, user_id=user_id, model="student", steps=step + 1)
     return trace
 
 
@@ -263,13 +278,16 @@ def _execute_tool(tool_name, args) -> str:
     if tool_name is None:
         return "Observation: Error — no valid Action found."
     if tool_name not in TOOL_REGISTRY:
+        log.warning(Events.TOOL_ERROR, tool=tool_name, reason="unknown tool")
         return f"Observation: Error — unknown tool '{tool_name}'."
     if args is None:
+        log.warning(Events.TOOL_ERROR, tool=tool_name, reason="could not parse arguments")
         return f"Observation: Error — could not parse arguments for '{tool_name}'."
     try:
         result = TOOL_REGISTRY[tool_name](**args)
         return f"Observation: {json.dumps(result)}"
     except TypeError as e:
+        log.warning(Events.TOOL_ERROR, tool=tool_name, reason=str(e))
         return f"Observation: Error — wrong arguments for '{tool_name}': {e}"
 
 
@@ -310,15 +328,6 @@ def process_claim(claim_text: str, user_id: str, claimed_amount: float,
     """
     Main entry point for FastAPI.
     Runs the full agent loop and returns a structured result dict.
-
-    Args:
-        claim_text:     description of the claim
-        user_id:        policyholder ID e.g. "P-1001"
-        claimed_amount: amount claimed in dollars
-        model:          "teacher" or "student"
-
-    Returns:
-        dict with verdict, payout, reasoning, trace, latency_ms, model_used
     """
     start = time.time()
 
