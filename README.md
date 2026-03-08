@@ -70,6 +70,22 @@ insureagent/
 
 ---
 
+## Running the demo
+
+**Streamlit Cloud (live demo)**
+→ [demo link]
+Runs Teacher model directly via OpenAI API.
+
+**Local full stack (Docker)**
+```bash
+cp .env.example .env  # fill in OPENAI_API_KEY
+docker compose up
+```
+FastAPI server: http://localhost:8000
+MLflow UI:      http://localhost:5001
+
+---
+
 ## Setup
 
 ```bash
