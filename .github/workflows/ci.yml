@@ -31,7 +31,7 @@ jobs:
           pip install --upgrade pip
           pip install pytest ruff pyyaml pandas
           pip install fastapi pydantic requests
-          pip install pandera
+          pip install pandera python-dotenv
 
       - name: Lint with ruff
         run: ruff check .
