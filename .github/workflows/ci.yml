@@ -31,7 +31,7 @@ jobs:
           pip install --upgrade pip
           pip install pytest ruff pyyaml pandas
           pip install fastapi pydantic requests
-          pip install pandera python-dotenv
+          pip install pandera python-dotenv openai structlog
 
       - name: Lint with ruff
         run: ruff check .
@@ -43,4 +43,4 @@ jobs:
         run: pytest tests/test_agent.py -v
 
       - name: Validate training data schema
-        run: python -m pytest tests/test_validation.py -v
+        run: pytest tests/test_validation.py -v
