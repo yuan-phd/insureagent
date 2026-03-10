@@ -43,7 +43,6 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from tools.calculator import calculate_payout
 from tools.database import lookup_policy
 from tools.rules import check_rules
-from agent.prompts import SYSTEM_PROMPT
 
 TOOL_REGISTRY = {
     "lookup_policy":    lookup_policy,
@@ -409,8 +408,8 @@ def main():
     print("\nStarting GRPO training...")
     print(f"  Group size (num_generations): {args.num_generations}")
     print(f"  Epochs: {args.epochs}")
-    print(f"  Reward components: verdict (+1.0) · tool sequence (+0.5) · payout (+0.3) · hallucination (-0.5)")
-    print(f"  Max reward per trace: 1.8\n")
+    print("  Reward components: verdict (+1.0) · tool sequence (+0.5) · payout (+0.3) · hallucination (-0.5)")
+    print("  Max reward per trace: 1.8\n")
 
     trainer.train()
     print("GRPO training complete.")
