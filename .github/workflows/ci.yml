@@ -32,6 +32,7 @@ jobs:
           pip install pytest ruff pyyaml pandas
           pip install fastapi pydantic requests
           pip install pandera python-dotenv openai structlog
+          pip install sentence-transformers
 
       - name: Lint with ruff
         run: ruff check .
