@@ -18,9 +18,9 @@ Runs Teacher model directly via OpenAI API.
 
 ## Evaluation Results
 
-Evaluated on 19 held-out test cases covering approvals, denials (not covered, policy inactive, claim limit), and edge cases (below deductible, exceeds annual cap).
+Evaluated on held-out test cases covering approvals, denials (not covered, policy inactive, claim limit), and edge cases (below deductible, exceeds annual cap).
 
-![Evaluation](docs/images/eval_comparison.png)
+![Evaluation](docs/images/eval_comparison_v2.png)
 
 The student model runs fully locally on a single GPU, reducing inference cost by ~90% compared to the teacher API.
 
