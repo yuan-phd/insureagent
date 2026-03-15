@@ -50,6 +50,7 @@ TOOL_REGISTRY = {
     "calculate_payout": calculate_payout,
 }
 
+# for parser
 POSITIONAL_PARAMS = {
     "lookup_policy":    ["user_id"],
     "check_rules":      ["claim_type", "plan_type", "policy_covers",
@@ -60,14 +61,14 @@ POSITIONAL_PARAMS = {
 
 
 # ── CONFIG ────────────────────────────────────────────────────────────────────
-
+# load yaml for training setup: eta, epochs, model directory
 def load_config(path: str) -> dict:
     with open(path) as f:
         return yaml.safe_load(f)
 
 
 # ── AUTH ──────────────────────────────────────────────────────────────────────
-
+# download LoRA adapter
 def hf_login(token: str | None = None) -> str:
     hf_token = token or os.environ.get("HF_TOKEN")
     if not hf_token:
@@ -94,6 +95,7 @@ def load_rl_prompts(train_path: str) -> Dataset:
         convs = trace["conversations"]
 
         # Extract system and first user turn as the prompt
+        # The model needs to generate a complete reasoning trace itself and cannot see the teacher's answer.
         system_msg = next((c for c in convs if c["role"] == "system"), None)
         user_msg = next((c for c in convs if c["role"] == "user"), None)
         if not system_msg or not user_msg:
@@ -127,7 +129,7 @@ def load_rl_prompts(train_path: str) -> Dataset:
 
 
 # ── PARSER ────────────────────────────────────────────────────────────────────
-
+# parse the `Action:` in the model output, extract the tool name and parameters, and then actually call the tool.
 def parse_action(text: str):
     """Parse tool call from model output. Handles JSON, kwargs, positional."""
     match = re.search(r'Action:\s*(\w+)\s*\((.*)\)', text, re.DOTALL)
@@ -149,6 +151,7 @@ def parse_action(text: str):
                 pass
 
     # kwargs
+    # if output from model is not in json
     if '=' in args_str:
         try:
             pairs = re.findall(r'(\w+)\s*=\s*([^,]+?)(?=,\s*\w+\s*=|$)',
@@ -169,6 +172,7 @@ def parse_action(text: str):
             pass
 
     # positional
+    # most difficult one: only value no key. seq is based on positional_params
     params = POSITIONAL_PARAMS.get(tool_name, [])
     if params:
         try:
@@ -204,7 +208,9 @@ def execute_tool(tool_name, args) -> str:
 
 
 # ── TOOL SEQUENCE VALIDATION ─────────────────────────────────────────────────
-
+# Check if the order in which the check tools are called is reasonable.
+# There's only one core rule: after `check_rules` returns `eligible: false`, `calculate_payout` cannot be called. 
+# This is the main failure mode found in SFT.
 def is_valid_tool_sequence(tool_calls: list, observations: list) -> bool:
     """
     Check whether the tool call sequence is logically valid.
@@ -228,7 +234,7 @@ def is_valid_tool_sequence(tool_calls: list, observations: list) -> bool:
 
 
 # ── REWARD FUNCTION ───────────────────────────────────────────────────────────
-
+# No manual annotation is required; the rule engine calculates directly.
 def compute_reward(
     response: str,
     true_verdict: str,
@@ -302,9 +308,12 @@ def make_reward_fn(dataset: Dataset):
         user_content = ex["prompt"][-1]["content"]
         lookup[user_content] = (ex["true_verdict"], ex["true_payout"])
 
+    # here is the real function for GRPO
+    # with ground truth dictionary saved above
     def reward_fn(prompts, completions, **kwargs):
         rewards = []
         for prompt, completion in zip(prompts, completions):
+            # use prompt to find GT
             user_content = prompt[-1]["content"] if isinstance(prompt, list) else ""
             true_verdict, true_payout = lookup.get(user_content, ("DENIED", 0.0))
 
@@ -324,7 +333,8 @@ def make_reward_fn(dataset: Dataset):
 
 
 # ── MODEL LOADING ─────────────────────────────────────────────────────────────
-
+# load 1.5B model, then add LoRA adapter, turn is.trainable = True
+# note adapter weight can be updated when training
 def load_model(cfg: dict, hf_token: str):
     """Load base model + LoRA adapter for GRPO training."""
     model_name   = cfg["model"]["student_base"]

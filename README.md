@@ -30,7 +30,7 @@ The student model runs fully locally on a single GPU, reducing inference cost by
 
 | Layer | Technology |
 |---|---|
-| Inference API | FastAPI + Pydantic |
+| Inference API | FastAPI + Pydantic (as parser) |
 | Containerisation | Docker + docker-compose |
 | Kubernetes | minikube · kubectl · NodePort service |
 | Fine-tuning | TRL + PEFT (LoRA), Google Colab T4 |
@@ -49,11 +49,11 @@ The student model runs fully locally on a single GPU, reducing inference cost by
 | Base model | meta-llama/Llama-3.2-1B-Instruct |
 | LoRA rank (r) | 16 |
 | LoRA alpha | 32 |
-| Target modules | q_proj, k_proj, v_proj, o_proj |
+| Attention modules | q_proj, k_proj, v_proj, o_proj |
 | Trainable parameters | 3.4M / 1.24B (0.275%) |
 | Training data | 345 traces |
 | Epochs | 5 |
-| Learning rate | 1e-4 |
+| Learning rate | from 2e-4 to 1e-4 |
 | Loss (start → end) | 1.698 → 0.121 |
 
 ![Evaluation](docs/images/loss_curve.png)
@@ -147,7 +147,7 @@ insureagent/
 │   ├── test_tools.py            # Unit tests: calculator + rules
 │   ├── test_parser.py           # Unit tests: teacher + student parser
 │   ├── test_validation.py       # Unit tests: data validation
-│   └── test_agent.py            # Integration tests: agent loop (mock LLM)
+│   └── test_agent.py            # Integration tests: agent loop (classifier + loop)
 ├── demo/
 │   ├── streamlit_app.py         # Streamlit Cloud demo (direct run_agent)
 │   └── streamlit_app_fastapi.py # Streamlit demo via FastAPI (engineering ref)
@@ -253,7 +253,7 @@ locust -f tests/locustfile.py --host http://localhost:8000
 
 ### Stage 1: Supervised Fine-Tuning (SFT)
 
-Fine-tuning was performed on Google Colab (T4 GPU) using TRL + PEFT. Training backend is switchable between local and Databricks via a single flag.
+Fine-tuning was performed on Google Colab (T4 GPU) using TRL + Parameter-Efficient Fine-Tuning. Training backend is switchable between local and Databricks via a single flag.
 
 ```bash
 python training/train.py --backend local       # local / Colab
