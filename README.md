@@ -291,6 +291,8 @@ The reward function calls the real rules engine to score each generated trace:
 | Payout within $100 of ground truth | +0.3 |
 | Hallucinated Observation detected | −0.5 |
 
+![Evaluation](docs/images/grpo_diagram.png)
+
 GRPO generates N candidate traces per claim (default: 4), scores each with the reward function, and updates the model to favour higher-reward traces relative to the group. This directly targets failure modes identified in SFT evaluation — particularly `calculate_payout` being called on ineligible claims.
 
 ---
